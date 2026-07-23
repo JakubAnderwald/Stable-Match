@@ -1,0 +1,3 @@
+# Archon repo-level config for Stable-Match
+worktree:
+  baseBranch: main
