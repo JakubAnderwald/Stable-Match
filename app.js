@@ -48,7 +48,19 @@ function cardMarkup(horse) {
     </div>`;
 }
 
-// Full re-render of the (up to) 3 visible cards. Deck is tiny, so this is fine.
+// Build one card <article> at a given stack depth (0 = top). The top card is the
+// interactive one, so it gets the drag handlers.
+function makeCard(horse, depth) {
+  const card = document.createElement("article");
+  card.className = "card" + (depth === 0 ? " card--top" : "");
+  card.style.setProperty("--depth", String(depth));
+  card.innerHTML = cardMarkup(horse);
+  if (depth === 0) attachDrag(card);
+  return card;
+}
+
+// Full (re)build of the up-to-3 visible cards. Used for init / restart / empty —
+// NOT for advancing after a decision (that's advanceStack, which animates the settle).
 function render() {
   stackEl.innerHTML = "";
   const hasTop = currentIndex < deck.length;
@@ -69,12 +81,36 @@ function render() {
   for (let offset = 2; offset >= 0; offset--) {
     const horse = deck[currentIndex + offset];
     if (!horse) continue;
-    const card = document.createElement("article");
-    card.className = "card" + (offset === 0 ? " card--top" : "");
-    card.style.setProperty("--depth", String(offset));
-    card.innerHTML = cardMarkup(horse);
-    stackEl.appendChild(card);
-    if (offset === 0) attachDrag(card);
+    stackEl.appendChild(makeCard(horse, offset));
+  }
+}
+
+// Advance the stack after a decision WITHOUT tearing it down, so the surviving
+// cards keep their DOM nodes and their --depth change animates via the .card
+// transform transition (the "next card settles up" delight — M1). `flungCard` is
+// the outgoing top card, already flung off-screen: drop it, promote everyone one
+// step shallower, then reveal the newly exposed back card.
+function advanceStack(flungCard) {
+  if (flungCard) flungCard.remove();
+
+  stackEl.querySelectorAll(".card").forEach((card) => {
+    const depth = Number(card.style.getPropertyValue("--depth")) - 1;
+    card.style.setProperty("--depth", String(depth)); // transitions → settle up
+    if (depth === 0) {
+      card.classList.add("card--top");
+      attachDrag(card);
+    }
+  });
+
+  // Reveal the next card at the back of the 3-deep window, if the deck has one.
+  const backHorse = deck[currentIndex + 2];
+  if (backHorse) stackEl.appendChild(makeCard(backHorse, 2));
+
+  // Deck just emptied — show the paddock end screen.
+  if (currentIndex >= deck.length) {
+    actionsEl.hidden = true;
+    stackEl.hidden = true;
+    emptyEl.hidden = false;
   }
 }
 
@@ -98,7 +134,7 @@ function decide(direction) {
   currentIndex += 1;
 
   const finish = () => {
-    render();
+    advanceStack(topCard); // reuse nodes so survivors' --depth transitions (settle up)
     busy = false;
     if (isMatch) registerMatch(horse); // overlay first; empty state (if any) is behind it
   };

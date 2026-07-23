@@ -9,7 +9,8 @@ that run straight from your file system, fully offline.
 
 ## Features
 
-- 🃏 **Swipeable card stack** — the top horse sits over 2–3 cards peeking behind.
+- 🃏 **Swipeable card stack** — the top horse sits over up to 2 cards peeking
+  behind, which settle upward as you clear the deck.
 - 🎮 **Three ways to decide** — Pass/Neigh! buttons, ← / → arrow keys, and
   left/right drag with a release threshold.
 - ✨ **Tactile animations** — cards tilt as you drag, fling off-screen on a
