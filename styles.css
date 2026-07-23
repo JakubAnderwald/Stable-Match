@@ -33,6 +33,14 @@
   box-sizing: border-box;
 }
 
+/* The app toggles visibility with the `hidden` attribute, but component rules
+   below set `display: flex` on .overlay / .empty / .actions, which would
+   otherwise beat the UA `[hidden] { display: none }`. Make `hidden` always win
+   so the match overlay & end screen stay hidden until JS reveals them. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
