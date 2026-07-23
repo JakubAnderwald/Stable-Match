@@ -105,10 +105,27 @@ body {
 
 .app-header__matches {
   margin: 0;
+  padding: 4px 8px;
+  font-family: inherit;
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--ink-soft);
   white-space: nowrap;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out), color 0.15s ease;
+}
+
+.app-header__matches:hover {
+  transform: translateY(-1px);
+  color: var(--ink);
+}
+
+.app-header__matches:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
 }
 
 .app-header__count {
@@ -440,6 +457,120 @@ body {
   font-size: 1.1rem;
   line-height: 1.4;
   color: var(--ink);
+}
+
+/* ---------- "Your Matches" list ---------- */
+
+.overlay__card--matches {
+  position: relative;
+  max-width: 380px;
+  text-align: left;
+  padding: 24px 22px 22px;
+}
+
+.matches__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--ink-soft);
+  background: #f3ead2;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s var(--ease-out);
+}
+
+.matches__close:hover {
+  background: #ecd9b0;
+  transform: scale(1.05);
+}
+
+.matches__close:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.matches__heading {
+  margin: 0 0 14px;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.matches__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(56dvh, 420px);
+  overflow-y: auto;
+}
+
+.matches__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--cream);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+}
+
+.matches__thumb {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.9rem;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(62, 39, 35, 0.08);
+}
+
+.matches__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.matches__name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.matches__breed {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--meadow-deep);
+}
+
+.matches__looking {
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.matches__empty {
+  margin: 8px 0 4px;
+  text-align: center;
+  font-size: 1.05rem;
+  color: var(--ink-soft);
 }
 
 /* ---------- Heart-burst particles ---------- */

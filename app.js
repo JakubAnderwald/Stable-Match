@@ -4,11 +4,20 @@
    ============================================================ */
 
 // ---------- State (STATE_SHAPE) ----------
-let deck = shuffle([...HORSES]); // Fisher–Yates copy; never mutate HORSES
+const SESSION_SIZE = 10; // how many of the full roster to deal per session
+
+// Deal a fresh random subset of the roster. Called on load and on "Start over",
+// so each session (and each reload) shows a different line-up for the same user.
+function dealDeck() {
+  return shuffle([...HORSES]).slice(0, SESSION_SIZE);
+}
+
+let deck = dealDeck();
 let currentIndex = 0;
-let matches = 0;
+const matched = []; // horses the user matched with, in order (drives the counter + list)
 let busy = false; // gates decide() during an in-flight fling
-let overlayOpen = false; // blocks input while the match overlay is up
+let overlayOpen = false; // blocks input while the match celebration overlay is up
+let matchesOpen = false; // blocks input while the "Your Matches" list is open
 
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const THRESHOLD = 110; // px drag distance to commit a decision
@@ -25,6 +34,11 @@ const likeBtn = document.getElementById("like-btn");
 const passBtn = document.getElementById("pass-btn");
 const restartBtn = document.getElementById("restart-btn");
 const dismissBtn = document.getElementById("match-dismiss");
+const matchesToggle = document.getElementById("matches-toggle");
+const matchesOverlay = document.getElementById("matches-overlay");
+const matchesList = document.getElementById("matches-list");
+const matchesEmpty = document.getElementById("matches-empty");
+const matchesClose = document.getElementById("matches-close");
 
 // ---------- Rendering (RENDER_FROM_TEMPLATE) ----------
 function esc(s) {
@@ -48,28 +62,31 @@ function cardMarkup(horse) {
     </div>`;
 }
 
-// Build one card <article> at a given stack depth (0 = top). The top card is the
+// Position a card at a stack depth (0 = top). Depth drives both the transform
+// (via the --depth custom prop) and the z-index, so shallower cards always paint
+// above deeper ones regardless of DOM order — key to a flicker-free advance.
+function setDepth(card, depth) {
+  card.style.setProperty("--depth", String(depth));
+  card.style.zIndex = String(10 - depth);
+}
+
+// Build one card <article> at a given stack depth. The top card is the
 // interactive one, so it gets the drag handlers.
 function makeCard(horse, depth) {
   const card = document.createElement("article");
   card.className = "card" + (depth === 0 ? " card--top" : "");
-  card.style.setProperty("--depth", String(depth));
+  setDepth(card, depth);
   card.innerHTML = cardMarkup(horse);
   if (depth === 0) attachDrag(card);
   return card;
 }
 
 // Full (re)build of the up-to-3 visible cards. Used for init / restart / empty —
-// NOT for advancing after a decision (that's advanceStack, which animates the settle).
+// NOT for advancing after a decision (that's promoteStack, which animates the settle).
 function render() {
   stackEl.innerHTML = "";
-  const hasTop = currentIndex < deck.length;
-
-  if (!hasTop) {
-    // Deck exhausted — reveal the paddock end screen.
-    actionsEl.hidden = true;
-    stackEl.hidden = true;
-    emptyEl.hidden = false;
+  if (currentIndex >= deck.length) {
+    showEmpty();
     return;
   }
 
@@ -77,7 +94,7 @@ function render() {
   stackEl.hidden = false;
   actionsEl.hidden = false;
 
-  // Render deepest card first so the top card paints last (on top).
+  // Render deepest card first so the top card is created last.
   for (let offset = 2; offset >= 0; offset--) {
     const horse = deck[currentIndex + offset];
     if (!horse) continue;
@@ -85,17 +102,23 @@ function render() {
   }
 }
 
-// Advance the stack after a decision WITHOUT tearing it down, so the surviving
-// cards keep their DOM nodes and their --depth change animates via the .card
-// transform transition (the "next card settles up" delight — M1). `flungCard` is
-// the outgoing top card, already flung off-screen: drop it, promote everyone one
-// step shallower, then reveal the newly exposed back card.
-function advanceStack(flungCard) {
-  if (flungCard) flungCard.remove();
+function showEmpty() {
+  actionsEl.hidden = true;
+  stackEl.hidden = true;
+  emptyEl.hidden = false;
+}
 
+// Promote the surviving cards one step shallower — this runs *concurrently* with
+// the outgoing card's fling, so the next card rises smoothly into place instead
+// of sitting offset and then jumping to the top (the old flicker). The flung card
+// keeps its own depth/z-index and is removed later, in decide()'s finish().
+function promoteStack() {
   stackEl.querySelectorAll(".card").forEach((card) => {
+    if (card.classList.contains("card--gone-left") || card.classList.contains("card--gone-right")) {
+      return; // the outgoing card is still flying off — leave it be
+    }
     const depth = Number(card.style.getPropertyValue("--depth")) - 1;
-    card.style.setProperty("--depth", String(depth)); // transitions → settle up
+    setDepth(card, depth); // --depth change transitions → the card settles up
     if (depth === 0) {
       card.classList.add("card--top");
       attachDrag(card);
@@ -105,23 +128,16 @@ function advanceStack(flungCard) {
   // Reveal the next card at the back of the 3-deep window, if the deck has one.
   const backHorse = deck[currentIndex + 2];
   if (backHorse) stackEl.appendChild(makeCard(backHorse, 2));
-
-  // Deck just emptied — show the paddock end screen.
-  if (currentIndex >= deck.length) {
-    actionsEl.hidden = true;
-    stackEl.hidden = true;
-    emptyEl.hidden = false;
-  }
 }
 
 function updateCounter() {
-  countEl.textContent = String(matches);
+  countEl.textContent = String(matched.length);
 }
 
 // ---------- Decision flow (SINGLE_DECISION_FUNCTION) ----------
 // direction: "like" | "pass"
 function decide(direction) {
-  if (busy || overlayOpen) return; // guard against double-decide / blocked input
+  if (busy || overlayOpen || matchesOpen) return; // guard against double-decide / blocked input
   const horse = deck[currentIndex];
   if (!horse) return; // nothing to act on
 
@@ -132,11 +148,13 @@ function decide(direction) {
   if (direction === "like") spawnHeartBurst();
   flingTopCard(topCard, direction);
   currentIndex += 1;
+  promoteStack(); // next card rises NOW, in sync with the fling — no offset-then-jump
 
   const finish = () => {
-    advanceStack(topCard); // reuse nodes so survivors' --depth transitions (settle up)
+    if (topCard) topCard.remove(); // drop the outgoing card once it's off-screen
+    if (currentIndex >= deck.length) showEmpty();
     busy = false;
-    if (isMatch) registerMatch(horse); // overlay first; empty state (if any) is behind it
+    if (isMatch) registerMatch(horse); // celebration renders on top of the empty state (if any)
   };
 
   if (REDUCED_MOTION || !topCard) {
@@ -161,8 +179,9 @@ function flingTopCard(card, direction) {
   card.classList.add(direction === "like" ? "card--gone-right" : "card--gone-left");
 }
 
+// ---------- Matches (celebration overlay) ----------
 function registerMatch(horse) {
-  matches += 1;
+  matched.push(horse);
   updateCounter();
   overlayText.textContent = `You and ${horse.name} are a match! Time to hit the trails. 🌾`;
   overlayOpen = true;
@@ -175,6 +194,35 @@ function dismissMatch() {
   clearTimeout(registerMatch._timer);
   overlayEl.hidden = true;
   overlayOpen = false;
+}
+
+// ---------- Matches (the "Your Matches" list) ----------
+function matchRowMarkup(horse) {
+  return `
+    <li class="matches__item">
+      <span class="matches__thumb" style="background:${horse.gradient}" aria-hidden="true">${horse.emoji}</span>
+      <span class="matches__info">
+        <span class="matches__name">${esc(horse.name)}</span>
+        <span class="matches__breed">${esc(horse.breed)} · ${esc(horse.age)}</span>
+        <span class="matches__looking">${esc(horse.lookingFor)}</span>
+      </span>
+    </li>`;
+}
+
+function openMatches() {
+  if (overlayOpen) dismissMatch(); // don't stack the celebration under the list
+  matchesList.innerHTML = matched.map(matchRowMarkup).join("");
+  const has = matched.length > 0;
+  matchesList.hidden = !has;
+  matchesEmpty.hidden = has;
+  matchesOpen = true;
+  matchesOverlay.hidden = false;
+  matchesClose.focus();
+}
+
+function closeMatches() {
+  matchesOverlay.hidden = true;
+  matchesOpen = false;
 }
 
 // ---------- Heart-burst delight ----------
@@ -208,7 +256,7 @@ function attachDrag(card) {
 }
 
 function onPointerDown(e) {
-  if (busy || overlayOpen) return;
+  if (busy || overlayOpen || matchesOpen) return;
   const card = e.currentTarget;
   start = { x: e.clientX, y: e.clientY, pointerId: e.pointerId, card };
   card.setPointerCapture(e.pointerId);
@@ -257,6 +305,13 @@ function setDecisionHint(card, dx) {
 
 // ---------- Keyboard ----------
 document.addEventListener("keydown", (e) => {
+  if (matchesOpen) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMatches();
+    }
+    return;
+  }
   if (overlayOpen) {
     if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -280,10 +335,15 @@ dismissBtn.addEventListener("click", dismissMatch);
 overlayEl.addEventListener("click", (e) => {
   if (e.target === overlayEl) dismissMatch(); // backdrop click closes
 });
+matchesToggle.addEventListener("click", () => (matchesOpen ? closeMatches() : openMatches()));
+matchesClose.addEventListener("click", closeMatches);
+matchesOverlay.addEventListener("click", (e) => {
+  if (e.target === matchesOverlay) closeMatches(); // backdrop click closes
+});
 restartBtn.addEventListener("click", () => {
-  deck = shuffle([...HORSES]);
+  deck = dealDeck(); // fresh random 10 for a new session
   currentIndex = 0;
-  matches = 0;
+  matched.length = 0;
   updateCounter();
   render();
 });

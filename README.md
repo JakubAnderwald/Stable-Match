@@ -17,8 +17,11 @@ that run straight from your file system, fully offline.
   decision, and the next card animates up (all `transform`/`opacity`).
 - 💚 **Mocked matching** — liking a horse triggers "It's a Match!" ~50% of the
   time, names the horse, and bumps the **Matches: N** counter.
-- 🐴 **~10 seed horses** — diverse, punny profiles with emoji "photos" and warm
-  CSS gradients.
+- 📋 **Your Matches** — tap the **Matches: N** counter in the header to open a
+  list of every horse you've matched with this session.
+- 🐴 **40 horse profiles** — a fresh random 10 are dealt each session, so every
+  reload (and every "Start over") shows a different line-up. Punny bios, emoji
+  "photos", and warm CSS gradients throughout.
 - 🌾 **Empty state + reshuffle** — swipe the whole stable, then "Start over" to
   shuffle a fresh deck.
 - 📱 **Mobile-first & themed** — a warm meadow/stable palette that holds from
