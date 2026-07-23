@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>🐴 Stable Match</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <div class="app-header__brand">
+          <span class="app-header__logo" aria-hidden="true">🐴</span>
+          <span class="app-header__title">Stable Match</span>
+        </div>
+        <p class="app-header__matches" aria-live="polite">
+          Matches: <span id="match-count" class="app-header__count">0</span> 💚
+        </p>
+      </header>
+
+      <main class="app-main">
+        <section id="stack" class="stack" aria-label="Horse profiles"></section>
+
+        <section id="empty-state" class="empty" hidden>
+          <div class="empty__art" aria-hidden="true">🌾🐴🌾</div>
+          <h2 class="empty__title">You've met every horse in the paddock 🌾</h2>
+          <p class="empty__sub">The whole stable has been swiped. Fancy another round?</p>
+          <button id="restart-btn" class="btn btn--restart" type="button">Start over</button>
+        </section>
+
+        <div id="actions" class="actions">
+          <button id="pass-btn" class="btn btn--pass" type="button" aria-label="Pass on this horse">
+            <span class="btn__icon" aria-hidden="true">👋</span>
+            <span class="btn__label">Pass</span>
+          </button>
+          <button id="like-btn" class="btn btn--like" type="button" aria-label="Neigh! Like this horse">
+            <span class="btn__icon" aria-hidden="true">💚</span>
+            <span class="btn__label">Neigh!</span>
+          </button>
+        </div>
+      </main>
+
+      <div id="match-overlay" class="overlay" hidden>
+        <div class="overlay__card" role="dialog" aria-modal="true" aria-labelledby="match-heading">
+          <div class="overlay__spark" aria-hidden="true">🐴💕</div>
+          <h2 id="match-heading" class="overlay__heading">It's a Match!</h2>
+          <p id="match-text" class="overlay__text"></p>
+          <button id="match-dismiss" class="btn btn--restart" type="button">Keep swiping</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Classic scripts, data before app so the global HORSES is defined first. -->
+    <script src="data/horses.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
